@@ -60,11 +60,11 @@ public class EM {
 		Model model = new Model(num_topics, corpus.num_terms, alpha);
 		Suffstats ss = new Suffstats(model, corpus, beta);
 		//Random initialize joint probability of p(w, k), and compute p(k) by sum over p(w, k)
-//		ss.random_initialize_ss();
-		ss.gibbs_initialize_ss();
+		ss.random_initialize_ss();
+//		ss.gibbs_initialize_ss();
 		model.mle(ss, true); //get initial beta
 		
-		model.save_lda_model(new File(path_model, "init").getAbsolutePath());		
+//		model.save_lda_model(new File(path_model, "init").getAbsolutePath());		
 		
 		//run EM 		
 		double likelihood, likelihood_old = 0, converged = 1;
@@ -80,7 +80,7 @@ public class EM {
 			//E step
 			for(int d = 0; d < corpus.num_docs; d++)
 			{
-				if(d%100 == 0)
+				if(d%1000 == 0)
 					System.out.println("document " + d);
 				
 				//Initialize gamma and phi to zero for each document
@@ -105,12 +105,12 @@ public class EM {
 	        
 	        // output model, likelihood and gamma
 	        sb.append(likelihood +"\t" + converged + "\n");
-	        model.save_lda_model(new File(path_model, i + "").getAbsolutePath());
-	        save_gamma(model, new File(path_model, i + "_gamma"));
-	        if(type.equals("GTRF"))
-	        	save_doc_para(new File(path_model, i + "_doc"));
-	        if(type.equals("MGTRF"))
-				save_doc_para2(new File(path_model, i + "_doc"));
+//	        model.save_lda_model(new File(path_model, i + "").getAbsolutePath());
+//	        save_gamma(model, new File(path_model, i + "_gamma"));
+//	        if(type.equals("GTRF"))
+//	        	save_doc_para(new File(path_model, i + "_doc"));
+//	        if(type.equals("MGTRF"))
+//				save_doc_para2(new File(path_model, i + "_doc"));
 		}		
 		File likelihood_file = new File(path_res, "likelihood");
 		try {
@@ -129,7 +129,7 @@ public class EM {
 		
 		for(int d = 0; d < corpus.num_docs; d++)
 		{
-			if(d%100 == 0)
+			if(d%1000 == 0)
 				System.out.println("final e step document " + d);
 			lda_inference(corpus.docs[d], model);
 		}
@@ -423,15 +423,27 @@ public class EM {
 			lda_inference(doc, model);
 			double[] theta = new double[num_topics];
 			double theta_sum = 0;
+			double gamma_sum = 0;
 			for(int k = 0; k < num_topics; k++)
 			{
-				theta[k] = doc.gamma[k];
-				theta_sum += theta[k];
+				theta[k] = Gamma.digamma(doc.gamma[k]);
+				gamma_sum += doc.gamma[k];
 			}
+			double diggamma_sumgamma =  Gamma.digamma(gamma_sum);
 			for(int k = 0; k < num_topics; k++)
 			{
-				theta[k] = theta[k]/theta_sum;
+				theta[k] -= diggamma_sumgamma;
+				theta[k] = Math.exp(theta[k]);
 			}
+//			for(int k = 0; k < num_topics; k++)
+//			{
+//				theta[k] = doc.gamma[k];
+//				theta_sum += theta[k];
+//			}
+//			for(int k = 0; k < num_topics; k++)
+//			{
+//				theta[k] = theta[k]/theta_sum;
+//			}
 			double log_p_w = 0;
 			for(int n = 0; n < doc.length; n++)
 			{
@@ -685,24 +697,35 @@ public class EM {
 		{
 			Document doc = corpus.docs_test[m];
 			double[] theta = new double[num_topics];
-			double theta_sum = 0;
 			//Initialize gamma and phi to zero for each document
 			doc.gamma = new double[model.num_topics];
 			doc.phi = new double[corpus.maxLength()][num_topics];
 			int num_words_train = (int) Math.round(doc.length*percentage);
 			lda_inference(doc, model, num_words_train);
+			double theta_sum = 0;
+			double gamma_sum = 0;
 			for(int k = 0; k < num_topics; k++)
 			{
-				theta[k] = Math.log(doc.gamma[k]);
-				if (k > 0)
-                    theta_sum = Tools.log_sum(theta_sum, theta[k]);
-                else
-                	theta_sum = theta[k];
+				theta[k] = Gamma.digamma(doc.gamma[k]);
+				gamma_sum += doc.gamma[k];
 			}
+			double diggamma_sumgamma =  Gamma.digamma(gamma_sum);
+			for(int k = 0; k < num_topics; k++)
+			{
+				theta[k] -= diggamma_sumgamma;
+			}
+//			for(int k = 0; k < num_topics; k++)
+//			{
+//				theta[k] = Math.log(doc.gamma[k]);
+//				if (k > 0)
+//                    theta_sum = Tools.log_sum(theta_sum, theta[k]);
+//                else
+//                	theta_sum = theta[k];
+//			}
 			double pred = 0;
 			for(int k = 0; k < num_topics; k++)
 			{
-				theta[k] = theta[k] - theta_sum;
+//				theta[k] = theta[k] - theta_sum;
 				double beta_k_sum = 0;
 				for(int n = num_words_train; n < doc.length; n++)
 				{

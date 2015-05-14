@@ -14,8 +14,8 @@ public class Model {
 	public double alpha;
 	public int num_topics;
 	int num_terms;
-	public static double NEWTON_THRESH = 1e-5;
-	public static int MAX_ALPHA_ITER = 1000;
+	public static double NEWTON_THRESH = 1e-4;
+	public static int MAX_ALPHA_ITER = 50;
 	
 	public Model(int num_topics, int num_terms, double alpha)
 	{

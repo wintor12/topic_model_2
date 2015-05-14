@@ -1,6 +1,8 @@
 package base_model;
 
 
+import java.util.Random;
+
 import org.apache.commons.math3.random.MersenneTwister;
 
 public class Suffstats {
@@ -80,13 +82,14 @@ public class Suffstats {
 	//Random initialize word-topic joint probability
 	public void random_initialize_ss()
 	{
-		MersenneTwister mt = new MersenneTwister(10);
+//		MersenneTwister mt = new MersenneTwister(10);   //set seed
+		Random rand = new Random();   
 		int k, n;
 		for (k = 0; k < num_topics; k++)
 	    {
 	        for (n = 0; n < num_terms; n++)
 	        {
-	            class_word[k][n] += 1.0/num_terms + mt.nextDouble();
+	            class_word[k][n] += 1.0/num_terms + rand.nextDouble();
 	            class_total[k] += class_word[k][n];
 	        }
 	    }

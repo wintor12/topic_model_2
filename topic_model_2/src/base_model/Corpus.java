@@ -53,7 +53,7 @@ public class Corpus {
     	System.out.println("=======process training set========");
 		while(i < num_docs)
 		{
-			if(i%10 == 0)
+			if(i%50 == 0)
 				System.out.println("Loading document " + i);
 			Document doc = new Document(path, files.get(i).getName(), voc);
 			doc.formatDocument(); //format document to word: count, and set words, counts, ids array
