@@ -35,6 +35,10 @@ public class Document {
     public double[] gamma;  //variational dirichlet parameter, K dimension  initialized when run EM
     public double[][] phi; //variational multinomial, corpus.maxLength() * K dimension
     
+    public double[] theta;  //posterior topic mixture, log probability
+    public int category;  //category of the document
+    public int cluster;   //predicted cluster of the document
+    
     public Vocabulary voc;
     
     public Document(String path, String doc_name, Vocabulary voc)
@@ -46,6 +50,21 @@ public class Document {
     	idToIndex = new TreeMap<Integer, Integer>();
     	adj = new TreeMap<Integer, List<Integer>>();
     	adj2 = new TreeMap<Integer, List<Integer>>();
+    }
+    
+    public Document(String path, String doc_name, Vocabulary voc, boolean label)
+    {
+    	this.path = path;
+    	this.doc_name = doc_name;
+    	this.voc = voc;
+    	wordCount = new TreeMap<Integer, Integer>();
+    	idToIndex = new TreeMap<Integer, Integer>();
+    	adj = new TreeMap<Integer, List<Integer>>();
+    	adj2 = new TreeMap<Integer, List<Integer>>();
+    	if(label == true)
+    	{
+    		this.category = Integer.parseInt(doc_name.substring(0, doc_name.indexOf('_')));
+    	}
     }
         
     

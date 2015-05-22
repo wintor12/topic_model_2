@@ -3,11 +3,8 @@ package base_model;
 import java.io.File;
 import java.io.IOException;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
-
-
-
-
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.math3.special.Gamma;
 
@@ -132,19 +129,46 @@ public class EM {
 			if(d%1000 == 0)
 				System.out.println("final e step document " + d);
 			lda_inference(corpus.docs[d], model);
+			Document doc = corpus.docs[d];
+			doc.theta = new double[num_topics];
+			double gamma_sum = 0;
+			for(int k = 0; k < num_topics; k++)
+			{
+				doc.theta[k] = Gamma.digamma(doc.gamma[k]);
+				gamma_sum += doc.gamma[k];
+			}
+			double diggamma_sumgamma =  Gamma.digamma(gamma_sum);
+			double max = Integer.MIN_VALUE;
+			for(int k = 0; k < num_topics; k++)
+			{
+				doc.theta[k] -= diggamma_sumgamma;
+				if(doc.theta[k] > max)
+				{
+					max = doc.theta[k];
+					doc.cluster = k;
+				}
+			}
 		}
 		
 		//Save top words of each topic among corpus
 		int[][] topwords = save_top_words_corpus(20, model, new File(path_res, "top_words_corpus"));
 		//Evaluation
 //		computePerplexity_e_theta(model, topwords);
-		computePerplexity_e_theta(model);
-//		computePerplexity_lowerbound(model);
+//		computePerplexity_e_theta(model);
 //		computePerplexity_gibbs(model, topwords);
 //		computePerplexity_gibbs(model);
-//		computePerplexity_old(model);
 		
-		pred_dist(model, 0.8);
+//		pred_dist(model, 0.8);
+		
+		double nmi = computNMI();
+		System.out.println(nmi);
+		try {
+			File all_eval = new File(path, "eval");
+			String s = path_res + " : " + nmi + "\n";
+			FileUtils.writeStringToFile(all_eval, s, true);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	public double doc_e_step(Document doc, Model model, Suffstats ss)
@@ -539,44 +563,6 @@ public class EM {
 	}
 	
 	
-	/**
-	 * Use E step in variational inference to compute the log likelihood of word sequence in test set
-	 * Based on the fact L(gamma, phi; alpha, beta) is the lower bound of log P(w | alpha, beta) 
-	 * @param model  contains beta and alpha learned from training set
-	 */
-	public void computePerplexity_lowerbound(Model model)
-	{
-		System.out.println("========evaluate========");
-		double perplex = 0;
-		int N = 0;
-		StringBuilder sb = new StringBuilder();
-		for(int m = 0; m < corpus.docs_test.length; m++)
-		{
-			Document doc = corpus.docs_test[m];
-			//Initialize gamma and phi to zero for each document
-			corpus.docs_test[m].gamma = new double[model.num_topics];
-			corpus.docs_test[m].phi = new double[corpus.maxLength()][num_topics];
-			double log_p_w = lda_inference(doc, model);
-			N += doc.total;
-			perplex += log_p_w;
-			sb.append(log_p_w);
-			sb.append("\n");
-		}
-		perplex = Math.exp(-(perplex/N));
-		perplex = Math.floor(perplex);
-		System.out.println(perplex);
-		sb.append("Perplexity: " + perplex);
-		try {
-			File eval = new File(path_res, "eval"); 
-			File all_eval = new File(path, "eval");
-			String s = path_res + " : " + perplex + "\n";
-			FileUtils.writeStringToFile(eval, sb.toString());
-			FileUtils.writeStringToFile(all_eval, s, true);
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
-	
 	
 	/**
 	 * Compute perplexity only using top M words for each topic
@@ -755,6 +741,99 @@ public class EM {
 			e.printStackTrace();
 		}
 	}
+	
+	public double computNMI() {
+		// double res = 0;
+
+		ArrayList<ArrayList<Integer>> textLabel = new ArrayList<ArrayList<Integer>>();
+
+		ArrayList<Integer> labelId = new ArrayList<Integer>();
+
+		for (int d = 0; d < corpus.docs.length; d++) {
+			int id = corpus.docs[d].category;
+
+			if (labelId.contains(id)) {
+				int index = labelId.indexOf(id);
+
+				textLabel.get(index).add(d);
+			} else {
+				ArrayList<Integer> subLabel = new ArrayList<Integer>();
+				subLabel.add(d);
+				labelId.add(id);
+				textLabel.add(subLabel);
+			}
+		}
+
+		ArrayList<ArrayList<Integer>> clusterLabel = new ArrayList<ArrayList<Integer>>();
+
+		ArrayList<Integer> clusterlId = new ArrayList<Integer>();
+
+		for (int d = 0; d < corpus.docs.length; d++) {
+			int id = corpus.docs[d].cluster;
+
+			if (clusterlId.contains(id)) {
+				int index = clusterlId.indexOf(id);
+
+				clusterLabel.get(index).add(d);
+			} else {
+				ArrayList<Integer> subLabel = new ArrayList<Integer>();
+				subLabel.add(d);
+				clusterlId.add(id);
+				clusterLabel.add(subLabel);
+			}
+		}
+    	
+    	System.out.println(" the cluster number : " + clusterLabel.size());
+    	
+    	double comRes = 0;
+    	
+    	for(int i=0; i<textLabel.size(); i++)
+    	{
+    		for(int j=0; j<clusterLabel.size(); j++)
+    		{
+    			int common = commonArray(textLabel.get(i),clusterLabel.get(j));
+    			
+    			if(common!=0)
+    				comRes += (double)common*Math.log((double)corpus.docs.length*common/(textLabel.get(i).size()*clusterLabel.get(j).size()));
+    		}	
+    	}
+    	
+    	double comL = 0;
+    	for(int i=0; i<textLabel.size(); i++)
+    	{
+    		comL += (double)textLabel.get(i).size()*Math.log((double)textLabel.get(i).size()/corpus.docs.length);
+    	}
+    	
+    	double comC = 0;
+    	for(int j=0; j<clusterLabel.size(); j++)
+    		comC += (double)clusterLabel.get(j).size()*Math.log((double)clusterLabel.get(j).size()/corpus.docs.length);
+    	
+    	//System.out.println(comRes + " " + comL + " "+ comC);
+    	
+    	comRes /= Math.sqrt(comL*comC);
+    	/*for(int i=0; i<clusterLabel.size(); i++)
+    	{
+    		System.out.println(i + " " +clusterLabel.get(i).toString());
+    	}*/
+    	
+    	return comRes;
+    }
+	
+	/**
+	 * 
+	 * @param arr1
+	 * @param arr2
+	 * @return number of common elements in arr1 and arr2
+	 */
+	public int commonArray(ArrayList<Integer> arr1, ArrayList<Integer> arr2)
+    {
+    	int count = 0;
+    	for(int i=0; i<arr1.size(); i++)
+    		if(arr2.contains(arr1.get(i)))
+    			count++;
+    	
+    	return count;
+    }
 	
 	/**
 	 * E step for evaluation method predictive distribution.

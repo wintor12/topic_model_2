@@ -106,6 +106,66 @@ public class Corpus {
 		}
     }
     
+    /**
+     * Create a corpus without splitting to training set and testing set. 
+     * @param path
+     * @param min_count
+     * @param max_count
+     * @param type
+     * @param label   true if the document has category label
+     */
+    public Corpus(String path, int min_count, int max_count, String type, boolean label)
+    {
+    	StringBuilder sb = new StringBuilder();
+    	this.path = path;
+    	// Iterate all files and get vocabulary, word id maps.
+    	voc = new Vocabulary();
+    	voc.getVocabulary(path, min_count, max_count);
+    	num_terms = voc.size();
+    	System.out.println("number of terms   :" + num_terms);
+    	sb.append("number of terms   :" + num_terms);
+    	sb.append("\n");
+    	
+    	List<File> files = Preprocess.listDir(new File(path, "data_words").getAbsolutePath());
+    	int num = files.size();
+    	System.out.println("number of docs   :" + num);
+    	sb.append("number of docs   :" + num);
+    	sb.append("\n");
+    	num_docs = num;
+    	System.out.println("number of docs    :" + num_docs);
+    	sb.append("number of docs    :" + num_docs);
+    	sb.append("\n");
+    	
+    	docs = new Document[num_docs];
+    	int i = 0;
+    	System.out.println("=======process========");
+		while(i < num_docs)
+		{
+			if(i%50 == 0)
+				System.out.println("Loading document " + i);
+			Document doc = new Document(path, files.get(i).getName(), voc, label);
+			doc.formatDocument(); //format document to word: count, and set words, counts, ids array
+//			System.out.println("Document " + d + " contain unique words : " + doc.length);
+			if(type.equals("GTRF"))
+			{
+				doc.getEdges2();
+			}
+			if(type.equals("MGTRF"))
+			{
+				doc.getEdges2();
+				doc.getEdges3();
+			}
+			docs[i] = doc;
+			i++;
+		}
+		
+		try {
+			FileUtils.writeStringToFile(new File(path, "corpus_info"), sb.toString());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+    }
+    
     public int maxLength()
     {
     	int max = 0;
